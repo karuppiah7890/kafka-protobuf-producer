@@ -9,6 +9,7 @@
 plugins {
     // Apply the application plugin to add support for building a CLI application in Java.
     id 'application'
+    id "com.google.protobuf" version "0.8.15"
 }
 
 repositories {
@@ -19,6 +20,7 @@ repositories {
 dependencies {
     // Use JUnit Jupiter API for testing.
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.2'
+    testImplementation 'com.google.protobuf:protobuf-java:4.0.0-rc-2'
 
     // Use JUnit Jupiter Engine for testing.
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
@@ -30,6 +32,13 @@ dependencies {
 application {
     // Define the main class for the application.
     mainClass = 'App'
+    sourceSets {
+        test {
+            proto {
+                srcDir 'src/test/resources/testdata/protos'
+            }
+        }
+    }
 }
 
 tasks.named('test') {

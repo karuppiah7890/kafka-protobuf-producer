@@ -3,12 +3,9 @@
  */
 package io.github.karuppiah7890.kafkaprotobufproducer;
 
-public class App {
-    public String getGreeting() {
-        return "Hello World!";
-    }
+public class KafkaProtobufProducerApp {
 
     public static void main(String[] args) {
-        System.out.println(new App().getGreeting());
+
     }
 }
