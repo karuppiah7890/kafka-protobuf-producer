@@ -637,3 +637,347 @@ app/build/tmp/compileTestJava/source-classes-mapping.txt
 
 - Create a Sample Proto file with a sample Message - DONE
 - Auto generate Java code for serializing and deserializing this message - DONE
+
+Example to use the protobuf gradle plugin -
+https://github.com/google/protobuf-gradle-plugin/blob/master/examples/exampleProject/build.gradle
+
+---
+
+As part of producing Protobuf messages - maybe there's a decision to take
+about - Should I create a Kafka topic if it doesn't exist already? Hmm
+
+Maybe not. Let's not create a topic if it doesn't exist already. It's okay.
+That's not the main job of a producer. Some admin task, so meh
+
+Some things to take care of to make the tool very generic and flexible -
+support all options that a kafka client supports. How? Well, let users provide
+config files that they use even for console kafka consumers. The file can
+contain all config keys and values in the form of a properties file maybe.
+Okay?
+
+---
+
+Release and distribution. I'm currently implementing a Java program. I need to
+distribute Jar files in the repo releases or in the maven central or something.
+
+I was thinking about writing the program in Golang too, but in that case, I
+should ideally provide executables for all platforms - linux, windows and mac.
+Mac - A1 and x64 too I guess. Hmm
+
+Jar files - it's good as long people have Java. There's also minimum Java
+version. Usually I will not use very new features, but anyways, it's just a
+thing
+
+Java Jars, Golang Executables, cool
+
+I was thinking about using Kotlin, but chucked it. It will take more time to
+implement as I forgot syntax and stuff. I was also thinking about how there's
+so much new stuff in Java too - RxJava (Reactive Java) etc. Anyways.
+
+For Web UI - one of the ideas was - use front end UI (React or basic Js) - and
+backend - Java Spring Boot or even Quarkus or Micronaut framework
+
+UI - Text box to put in JSON message and then protobuf message metadata by
+uploading some file like descriptor file or putting some data in a textbox
+
+---
+
+Next things to do
+
+- Import a Kafka client library
+- Create a producer using the Kafka client library
+
+https://duckduckgo.com/?t=ffab&q=apache+kafka+java+client&ia=web
+
+https://cwiki.apache.org/confluence/display/KAFKA/Clients
+
+https://cwiki.apache.org/confluence/display/KAFKA/Clients#Clients-AlternativeJava
+
+https://docs.confluent.io/clients-kafka-java/current/overview.html
+
+https://howtoprogram.xyz/2016/05/02/apache-kafka-0-9-java-client-api-example/
+
+https://kafka.apache.org/documentation/#intro_apis
+
+https://kafka.apache.org/documentation.html#producerapi
+
+https://kafka.apache.org/27/javadoc/index.html?org/apache/kafka/clients/producer/KafkaProducer.html
+
+```java
+Properties props = new Properties();
+props.put("bootstrap.servers", "localhost:9092");
+props.put("acks", "all");
+props.put("retries", 0);
+props.put("linger.ms", 1);
+props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+
+Producer<String, String> producer = new KafkaProducer<>(props);
+for (int i = 0; i < 100; i++)
+    producer.send(new ProducerRecord<String, String>("my-topic", Integer.toString(i), Integer.toString(i)));
+
+producer.close();
+```
+
+```groovy
+implementation 'org.apache.kafka:kafka-clients:2.7.0'
+```
+
+https://search.maven.org/artifact/org.apache.kafka/kafka-clients/2.7.0/jar
+
+I'm going to start by producing string messages and see if that works by using
+the console consumer and then try protobuf messages :D
+
+```java
+package io.github.karuppiah7890.kafkaprotobufproducer;
+
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+
+import java.util.Properties;
+
+public class KafkaProtobufProducerApp {
+
+    public static void main(String[] args) {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", "localhost:9092");
+        props.put("acks", "all");
+        props.put("retries", 0);
+        props.put("linger.ms", 1);
+        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+
+        Producer<String, String> producer = new KafkaProducer<>(props);
+        for (int i = 0; i < 100; i++)
+            producer.send(new ProducerRecord<>("my-topic", Integer.toString(i), Integer.toString(i)));
+
+        producer.close();
+    }
+}
+```
+
+I ran the program in IntelliJ using run feature
+
+```bash
+8:16:32 PM: Executing task 'KafkaProtobufProducerApp.main()'...
+
+> Task :app:extractIncludeProto
+> Task :app:extractProto UP-TO-DATE
+> Task :app:generateProto NO-SOURCE
+> Task :app:compileJava
+> Task :app:processResources NO-SOURCE
+> Task :app:classes
+
+> Task :app:KafkaProtobufProducerApp.main()
+
+BUILD SUCCESSFUL in 4s
+4 actionable tasks: 3 executed, 1 up-to-date
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+8:16:36 PM: Task execution finished 'KafkaProtobufProducerApp.main()'.
+```
+
+I'm going to try to consume from `my-topic` kafka topic. Also, I'm wondering
+how the topic exists or if it exists. Maybe it does exist. Let's see ! :)
+
+```bash
+$ ./bin/kafka-console-consumer.sh -h
+h is not a recognized option
+Option                                   Description
+------                                   -----------
+--bootstrap-server <String: server to    REQUIRED: The server(s) to connect to.
+  connect to>
+--consumer-property <String:             A mechanism to pass user-defined
+  consumer_prop>                           properties in the form key=value to
+                                           the consumer.
+--consumer.config <String: config file>  Consumer config properties file. Note
+                                           that [consumer-property] takes
+                                           precedence over this config.
+--enable-systest-events                  Log lifecycle events of the consumer
+                                           in addition to logging consumed
+                                           messages. (This is specific for
+                                           system tests.)
+--formatter <String: class>              The name of a class to use for
+                                           formatting kafka messages for
+                                           display. (default: kafka.tools.
+                                           DefaultMessageFormatter)
+--from-beginning                         If the consumer does not already have
+                                           an established offset to consume
+                                           from, start with the earliest
+                                           message present in the log rather
+                                           than the latest message.
+--group <String: consumer group id>      The consumer group id of the consumer.
+--help                                   Print usage information.
+--isolation-level <String>               Set to read_committed in order to
+                                           filter out transactional messages
+                                           which are not committed. Set to
+                                           read_uncommitted to read all
+                                           messages. (default: read_uncommitted)
+--key-deserializer <String:
+  deserializer for key>
+--max-messages <Integer: num_messages>   The maximum number of messages to
+                                           consume before exiting. If not set,
+                                           consumption is continual.
+--offset <String: consume offset>        The offset id to consume from (a non-
+                                           negative number), or 'earliest'
+                                           which means from beginning, or
+                                           'latest' which means from end
+                                           (default: latest)
+--partition <Integer: partition>         The partition to consume from.
+                                           Consumption starts from the end of
+                                           the partition unless '--offset' is
+                                           specified.
+--property <String: prop>                The properties to initialize the
+                                           message formatter. Default
+                                           properties include:
+                                          print.timestamp=true|false
+                                          print.key=true|false
+                                          print.offset=true|false
+                                          print.partition=true|false
+                                          print.headers=true|false
+                                          print.value=true|false
+                                          key.separator=<key.separator>
+                                          line.separator=<line.separator>
+                                          headers.separator=<line.separator>
+                                          null.literal=<null.literal>
+                                          key.deserializer=<key.deserializer>
+                                          value.deserializer=<value.
+                                           deserializer>
+                                          header.deserializer=<header.
+                                           deserializer>
+                                         Users can also pass in customized
+                                           properties for their formatter; more
+                                           specifically, users can pass in
+                                           properties keyed with 'key.
+                                           deserializer.', 'value.
+                                           deserializer.' and 'headers.
+                                           deserializer.' prefixes to configure
+                                           their deserializers.
+--skip-message-on-error                  If there is an error when processing a
+                                           message, skip it instead of halt.
+--timeout-ms <Integer: timeout_ms>       If specified, exit if no message is
+                                           available for consumption for the
+                                           specified interval.
+--topic <String: topic>                  The topic id to consume on.
+--value-deserializer <String:
+  deserializer for values>
+--version                                Display Kafka version.
+--whitelist <String: whitelist>          Regular expression specifying
+                                           whitelist of topics to include for
+                                           consumption.
+
+```
+
+```bash
+$ ./bin/kafka-console-consumer.sh \
+> --bootstrap-server localhost:9092 \
+> --topic my-topic \
+> --from-beginning
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+
+
+^CProcessed a total of 100 messages
+```
+
+Coooool! So, it worked!! :D
