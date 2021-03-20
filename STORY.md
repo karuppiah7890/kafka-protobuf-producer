@@ -50,10 +50,11 @@ Steps
 - Create a Sample Proto file with a sample Message - DONE
 - Auto generate Java code for serializing and deserializing this message - DONE
 - Import a Kafka client library - DONE
-- Create a protocol buffer message producer using the Kafka client library
-- Run Zookeeper and Kafka locally
-- Run my app to produce some dummy data
-- Consume the dummy data using the kafka protobuf consumer
+- Create a protocol buffer message producer using the Kafka client
+  library - DONE
+- Run Zookeeper and Kafka locally - DONE
+- Run my app to produce some dummy data - DONE
+- Consume the dummy data using the kafka protobuf consumer - DONE
 
 That confirms that we are able to produce protobuf messages as we would be able
 to consume them using another tool
@@ -850,14 +851,14 @@ Running kafka next
 [2021-03-20 20:14:46,509] INFO Cleared cache (kafka.server.FinalizedFeatureCache)
 [2021-03-20 20:14:46,694] INFO Cluster ID = ii_2kadCTyamYU3zlNo5TQ (kafka.server.KafkaServer)
 [2021-03-20 20:14:46,700] WARN No meta.properties file under dir /tmp/kafka-logs/meta.properties (kafka.server.BrokerMetadataCheckpoint)
-[2021-03-20 20:14:46,747] INFO KafkaConfig values: 
+[2021-03-20 20:14:46,747] INFO KafkaConfig values:
 	advertised.host.name = null
 	advertised.listeners = null
 	advertised.port = null
 	alter.config.policy.class.name = null
 	alter.log.dirs.replication.quota.window.num = 11
 	alter.log.dirs.replication.quota.window.size.seconds = 1
-	authorizer.class.name = 
+	authorizer.class.name =
 	auto.create.topics.enable = true
 	auto.leader.rebalance.enable = true
 	background.threads = 10
@@ -890,7 +891,7 @@ Running kafka next
 	group.max.session.timeout.ms = 1800000
 	group.max.size = 2147483647
 	group.min.session.timeout.ms = 6000
-	host.name = 
+	host.name =
 	inter.broker.listener.name = null
 	inter.broker.protocol.version = 2.7-IV2
 	kafka.metrics.polling.interval.secs = 10
@@ -939,7 +940,7 @@ Running kafka next
 	max.connection.creation.rate = 2147483647
 	max.connections = 2147483647
 	max.connections.per.ip = 2147483647
-	max.connections.per.ip.overrides = 
+	max.connections.per.ip.overrides =
 	max.incremental.fetch.session.cache.slots = 1000
 	message.max.bytes = 1048588
 	metric.reporters = []
@@ -1068,14 +1069,14 @@ Running kafka next
 	zookeeper.ssl.truststore.type = null
 	zookeeper.sync.time.ms = 2000
  (kafka.server.KafkaConfig)
-[2021-03-20 20:14:46,754] INFO KafkaConfig values: 
+[2021-03-20 20:14:46,754] INFO KafkaConfig values:
 	advertised.host.name = null
 	advertised.listeners = null
 	advertised.port = null
 	alter.config.policy.class.name = null
 	alter.log.dirs.replication.quota.window.num = 11
 	alter.log.dirs.replication.quota.window.size.seconds = 1
-	authorizer.class.name = 
+	authorizer.class.name =
 	auto.create.topics.enable = true
 	auto.leader.rebalance.enable = true
 	background.threads = 10
@@ -1108,7 +1109,7 @@ Running kafka next
 	group.max.session.timeout.ms = 1800000
 	group.max.size = 2147483647
 	group.min.session.timeout.ms = 6000
-	host.name = 
+	host.name =
 	inter.broker.listener.name = null
 	inter.broker.protocol.version = 2.7-IV2
 	kafka.metrics.polling.interval.secs = 10
@@ -1157,7 +1158,7 @@ Running kafka next
 	max.connection.creation.rate = 2147483647
 	max.connections = 2147483647
 	max.connections.per.ip = 2147483647
-	max.connections.per.ip.overrides = 
+	max.connections.per.ip.overrides =
 	max.incremental.fetch.session.cache.slots = 1000
 	message.max.bytes = 1048588
 	metric.reporters = []
@@ -1910,4 +1911,1489 @@ https://www.vijaykonnackal.com/protobuf-kafka-message/
 
 https://docs.confluent.io/platform/current/schema-registry/serdes-develop/serdes-protobuf.html
 
+Looks like I don't need to do much to produce a protobuf message as Kafka
+supports binary messages by default! :D Let's see how that works!
 
+I noticed this here -
+
+https://www.vijaykonnackal.com/protobuf-kafka-message/
+
+It says
+
+```
+The producer side of things is easy. All messages on Kafka are binary is a
+direct match to protobuf. However, there is a challenge on the consumer side.
+Unlike JSON which is self describing format, a protobuf message cannot be
+de-serialized without prior knowledge of the message type. So it is imperative
+that additional metadata is included by the producer to describe the message.
+
+Similar to HTTP headers, Kafka supports message headers that can carry any
+metadata. The below snippets outline a strategy to serialize and de-serialize
+Protobuf messages.
+```
+
+But the code, it uses something called `KafkaTemplate` which is a Spring thing
+and I'm using plain kafka client java libray
+
+https://duckduckgo.com/?t=ffab&q=apache+kafka+template+java&ia=web
+
+https://docs.spring.io/spring-kafka/api/org/springframework/kafka/core/KafkaTemplate.html
+
+So, I need to check how to use protocol buffers as messages, hmm
+
+I think I need to check for what the serializer will be for the value so that
+I can use it in this line
+
+```java
+props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+```
+
+I checked the code for the `StringSerializer` and found it here -
+
+`/Users/karuppiahn/.gradle/caches/modules-2/files-2.1/org.apache.kafka/kafka-clients/2.7.0/cf59e01c5f72438a227c0bd3feec183574bb7779/kafka-clients-2.7.0-sources.jar!/org/apache/kafka/common/serialization/StringSerializer.java`
+
+Along with the String Serializer, I was thinking that I might have to use the
+Byte or Byte Array or some related binary Serializer
+
+`ByteArraySerializer`
+`ByteBufferSerializer`
+`BytesSerializer`
+
+That's all seems to be there. Looking at all the serialize methods, I see all
+of them return a byte array. `byte[]`
+
+Oops, I guess I should have looked for what's the input as part of the data
+argument. Only for one of them it's `byte[]` it's the `ByteArraySerializer` one.
+Hmm. Looks like Protocol Buffer will be able to give an array of bytes. But I
+gotta check and see how it all fits together and if this is the right thing
+
+https://duckduckgo.com/?q=apache+kafka+value+serializer+for+protocol+buffer+messages&t=ffab&ia=web
+
+https://laptrinhx.com/serializer-deserializer-for-kafka-to-serialize-deserialize-protocol-buffers-messages-3895596127/
+
+https://medium.com/data-rocks/protobuf-as-an-encoding-format-for-apache-kafka-cad4709a668d
+
+Cool, I'm just gonna use one of the byte related serializers. I just read how
+the StringSerializer works, so, all good :)
+
+Now, I'm trying to use the auto generated protobuf java class in my code. I
+realized I was using it in the main app code but the sample protos are in the
+test part and the same goes for in the build auto generated classes too - they
+are part of test.
+
+Also, it doesn't have package name. So, that's a big problem.
+
+https://developers.google.com/protocol-buffers/docs/proto3#packages
+
+By mistake I wrote this
+
+```proto
+package = "io.github.karuppiah7890.kafkaprotobufproducer"
+```
+
+Fixed it to this
+
+```proto
+package io.github.karuppiah7890.kafkaprotobufproducer;
+```
+
+Right, for Java I need to use
+
+```proto
+option java_package = "io.github.karuppiah7890.kafkaprotobufproducer";
+```
+
+https://developers.google.com/protocol-buffers/docs/javatutorial#defining-your-protocol-format
+
+Still not able to refer to the package even though there's a Java package now
+under which the auto generated code is present. I think there's a little
+disconnect though.
+
+My test class output is in a different directory - `build/classes` but the
+proto auto generated classes are in a different directory - `build/generated`
+
+Hmm. Should I somehow include the generated files too in the Test? Hmm
+
+Gotta check how to do that!
+
+https://duckduckgo.com/?t=ffab&q=java%3A+gradle+include+generated+files+in+test&ia=web
+
+https://stackoverflow.com/questions/28345705/how-can-i-add-a-generated-source-folder-to-my-source-path-in-gradle
+
+Wow. This worked -
+
+```groovy
+application {
+    // Define the main class for the application.
+    mainClass = 'App'
+    sourceSets {
+        test {
+            proto {
+                srcDir 'src/test/resources/testdata/protos'
+            }
+
+            java {
+                srcDir 'build/generated'
+            }
+        }
+    }
+}
+```
+
+Given it's all test data - the proto files and date, I think it only makes
+sense to only use it in tests. Maybe I could make it a bit better though
+
+```groovy
+application {
+    // Define the main class for the application.
+    mainClass = 'App'
+    sourceSets {
+        test {
+            proto {
+                srcDir 'src/test/resources/testdata/protos'
+            }
+
+            java {
+                srcDir 'build/generated/source/proto/test'
+            }
+        }
+    }
+}
+```
+
+This looks better! :)
+
+Now, the other thing about only using it in test is, ideally this tool is not
+dependent on any particular proto file so why include any now, though it could
+be removed in the future once I'm done with all the building, but I could still
+just use some sample data in test itself and in test alone, even now
+
+So, let's produce data with Junit test instead of the app main :)
+
+```java
+package io.github.karuppiah7890.kafkaprotobufproducer;
+
+import io.github.karuppiah7890.kafkaprotobufproducer.SearchRequestOuterClass.SearchRequest;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.junit.jupiter.api.Test;
+
+import java.util.Properties;
+
+class KafkaProtobufProducerAppTest {
+    @Test
+    void produceDataIntoKafka() {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", "localhost:9092");
+        props.put("acks", "all");
+        props.put("retries", 0);
+        props.put("linger.ms", 1);
+        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+
+        SearchRequest searchRequest = SearchRequest.newBuilder()
+                .setPageNumber(1)
+                .setResultPerPage(5)
+                .setQuery("meh-query")
+                .build();
+
+        Producer<String, byte[]> producer = new KafkaProducer<>(props);
+        for (int i = 0; i < 100; i++)
+            producer.send(new ProducerRecord<>("my-topic", Integer.toString(i), searchRequest.toByteArray()));
+
+        producer.close();
+    }
+}
+```
+
+Wow! I was able to produce the protobuf messages :D :D
+
+```bash
+Last login: Sat Mar 20 23:31:05 on ttys004
+You have new mail.
+ kafka_2.13-2.7.0  $ ./bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic my-topic --from-beginning
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+
+	meh-query
+^CProcessed a total of 200 messages
+```
+
+Since I pulled the messages from the beginning, I got all of them. I also
+didn't use any consumer group ID. I think it's high time I start using a
+consumer group ID so that kafka can keep track of the last message I consumed :)
+
+Now, let me try to use the protocol buffer consumer and see how it works. Let
+me change the topic name and produce only protobuf messages in it so that it's
+purely made of protobuf messages.
+
+Or I could delete the topic, hmm. Let me try that.
+
+https://dev.to/de_maric/how-to-delete-records-from-a-kafka-topic-464g
+
+```bash
+./bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+--topic my-topic \
+--delete
+```
+
+Cool, that's done! :)
+
+Ran the test again!
+
+Gonna use the kafka protocol buffer consumer now! :D
+
+```bash
+$ kafka-protobuf-console-consumer --help
+usage: kafka-protobuf-console-consumer [<flags>]
+
+Flags:
+      --help                     Show context-sensitive help (also try --help-long and --help-man).
+  -v, --version                  Version
+  -d, --debug                    Enable Sarama logs
+  -b, --broker-list=localhost:9092 ...
+                                 List of brokers to connect
+  -c, --consumer-group=CONSUMER-GROUP
+                                 Consumer group to use
+  -t, --topic=TOPIC              Topic name
+      --proto-dir=PROTO-DIR ...  /foo/dir1 /bar/dir2 (add all dirs used by imports)
+      --file=FILE                will be baz/a.proto that's in /foo/dir1/baz/a.proto
+      --message=MESSAGE          Proto message name
+      --from-beginning           Read from beginning
+      --pretty                   Format output
+      --with-separator           Adds separator between messages. Useful with --pretty
+
+```
+
+```bash
+$ kafka-protobuf-console-consumer \
+--broker-list localhost:9092 \
+--topic my-topic \
+--proto-dir app/src/test/resources/testdata/protos/ \
+--file search-request.proto \
+--message SearchRequest \
+--consumer-group march-20-2021-23-38-40 \
+--pretty \
+--with-separator \
+--from-beginning
+
+Message topic:"my-topic" partition:0 offset:0
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:1
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:2
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:3
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:4
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:5
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:6
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:7
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:8
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:9
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:10
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:11
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:12
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:13
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:14
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:15
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:16
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:17
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:18
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:19
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:20
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:21
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:22
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:23
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:24
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:25
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:26
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:27
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:28
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:29
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:30
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:31
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:32
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:33
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:34
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:35
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:36
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:37
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:38
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:39
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:40
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:41
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:42
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:43
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:44
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:45
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:46
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:47
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:48
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:49
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:50
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:51
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:52
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:53
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:54
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:55
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:56
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:57
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:58
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:59
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:60
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:61
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:62
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:63
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:64
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:65
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:66
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:67
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:68
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:69
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:70
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:71
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:72
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:73
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:74
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:75
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:76
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:77
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:78
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:79
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:80
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:81
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:82
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:83
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:84
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:85
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:86
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:87
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:88
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:89
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:90
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:91
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:92
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:93
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:94
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:95
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:96
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:97
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:98
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+Message topic:"my-topic" partition:0 offset:99
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+^C
+
+```
+
+This is fantastic! :D
+
+- Create a protocol buffer message producer using the Kafka client
+  library - DONE
+- Run Zookeeper and Kafka locally - DONE
+- Run my app to produce some dummy data - DONE
+- Consume the dummy data using the kafka protobuf consumer - DONE
+
+---
+
+Next is
+
+- Try to use JSON format of the protobuf message as input for the tool
+  - CLI input - direct standard input or file input - a single JSON file maybe
+- Use Protobuf message metadata and parse the JSON input to form Protobuf
+  messages
+
+Gonna use the below as sample input :)
+
+```java
+"{\"query\":\"meh-query\",\"pageNumber\":1,\"resultPerPage\":5}"
+```
+
+To get `JsonFormat.Parser` I need to import another library - util library :)
+
+I think this is what we are looking for
+
+https://search.maven.org/artifact/com.google.protobuf/protobuf-java-util/4.0.0-rc-2/bundle
+
+:D :D
+
+Checking this out now
+
+https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/util/JsonFormat.Parser.html
+
+I think I can only use `ignoringUnknownFields()` factory method
+
+Oh. That's an instance method. The factor method is this
+
+```java
+JsonFormat.Parser parser = JsonFormat.parser();
+```
+
+It was right there here
+
+https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/util/JsonFormat.html
+
+🤦
+
+Anyways, it's cool that I found it! :D
+
+This is the implementation of the `parser` factory method
+
+```java
+public static Parser parser() {
+    return new Parser(
+        com.google.protobuf.TypeRegistry.getEmptyTypeRegistry(),
+        TypeRegistry.getEmptyTypeRegistry(),
+        false,
+        Parser.DEFAULT_RECURSION_LIMIT);
+}
+```
+
+So, the `false` refers to the `ignoreUnknownFields`. So, ignore is false, so it
+will not ignore and instead throw errors. I guess it's good? I don't know.
+Hmm. For now I'll leave it. So, JSON should always have only the known fields.
+Okay! :)
+
+Now, let's try to parse the json :D
+
+There are two methods that I see to help with this
+
+https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/util/JsonFormat.Parser.html#merge-java.io.Reader-com.google.protobuf.Message.Builder-
+
+https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/util/JsonFormat.Parser.html#merge-java.lang.String-com.google.protobuf.Message.Builder-
+
+One is based on `Reader` as input for getting JSON, another is based on `String`
+as input for getting JSON. Let's try the JSON one :)
+
+Now I'm here
+
+```java
+@Test
+void convertJSONIntoProtobufMessage() {
+	String protobufMessageAsJSONString = "{\"query\":\"meh-query\",\"pageNumber\":1,\"resultPerPage\":5}";
+
+	JsonFormat.Parser parser = JsonFormat.parser();
+	Message.Builder messageBuilder;
+	parser.merge(protobufMessageAsJSONString, messageBuilder);
+}
+```
+
+Now, I need to see how to get a message builder! :)
+
+Especially for the given proto. I know three things that one usually needs for
+this
+
+protos directory / directories path - which contains all protos, this is most
+times important as people spread the protos across multiple files in multiple
+directories and then import them in different places. So, proto files may not
+be stand alone and will depend on other protos by using `import`
+
+proto file name - the particular proto file we are interested in, in which the
+message we are interested in is present, the message which we want to build and
+produce as kafka message
+
+message name - the particular protobuf message name which we want to build.
+The name should be identical to what's present in the proto file name as far as
+I know!
+
+Now, let's get to it! :)
+
+Also, another thing that I have noticed is that, sometimes instead of the whole
+protos directory path (that is the directory/directories) itself is not needed
+but instead a descriptor file that too a standalone one is all that one needs
+and then proto file name and the message name. The descriptor file will have the
+content of all the protos and the imports in a stand alone manner :) This can
+be generated when you run the protoc command :)
+
+https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/Message.Builder.html
+
+I remember solving this problem with a colleague. We use some dynamic message
+thingy I think. Let me go get that first.
+
+https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/DynamicMessage.Builder.html
+
+I'ms stuck here now
+
+```java
+@Test
+void convertJSONIntoProtobufMessage() {
+	String protobufMessageAsJSONString = "{\"query\":\"meh-query\",\"pageNumber\":1,\"resultPerPage\":5}";
+
+	JsonFormat.Parser parser = JsonFormat.parser();
+
+	DynamicMessage dynamicMessage = DynamicMessage.newBuilder().build();
+
+	Message.Builder messageBuilder;
+	parser.merge(protobufMessageAsJSONString, messageBuilder);
+}
+```
+
+I think I should provide a builder to the `merge` method. So, no need to create
+`DynamicMessage`, but just `DynamicMessage.Builder` is enough I think. But how
+will I get the final protobuf Dynamic Message? Hmm
+
+I guess after passing the builder, I need to parse with `merge` and then finally
+call `.build()` method on the buidler, hmm. Makes sense
+
+Let's check how to work with Dynamic Message
+
+It says
+
+"An implementation of Message that can represent arbitrary types, given a Descriptors.Descriptor."
+
+Let's see how to create it then! :)
+
+I'm now checking about Descriptors, hmm
+
+`/Users/karuppiahn/.gradle/caches/modules-2/files-2.1/com.google.protobuf/protobuf-java/4.0.0-rc-2/c49a358fffacfeede6082a58ded63b71a5b2126/protobuf-java-4.0.0-rc-2-sources.jar!/com/google/protobuf/Descriptors.java`
+
+Dynamic Message is here
+
+`/Users/karuppiahn/.gradle/caches/modules-2/files-2.1/com.google.protobuf/protobuf-java/4.0.0-rc-2/c49a358fffacfeede6082a58ded63b71a5b2126/protobuf-java-4.0.0-rc-2-sources.jar!/com/google/protobuf/DynamicMessage.java`
+
+In Descriptors, there are a lot of them, hmm
+
+`FieldDescriptorProto`
+
+```java
+private void setProto(final FieldDescriptorProto proto) {
+	this.proto = proto;
+}
+```
+
+And then `FileDescriptorProto`
+
+```java
+private void setProto(final FileDescriptorProto proto) {
+      this.proto = proto;
+
+      for (int i = 0; i < messageTypes.length; i++) {
+    ...
+```
+
+There's also `FileDescriptorSet` hmm
+
+`/Users/karuppiahn/Library/Application Support/JetBrains/IdeaIC2020.3/plugins/protobuf-editor.jar!/include/google/protobuf/descriptor.proto`
+
+FileDescriptorSet - complete list of proto files as one thing
+
+FileDescriptorProto - one complete proto file
+
+DescriptorProto - describes message type
+
+I'm slowly starting to think if the below could lead somewhere, hmm
+
+```java
+@Test
+void convertJSONIntoProtobufMessage() {
+	String protobufMessageAsJSONString = "{\"query\":\"meh-query\",\"pageNumber\":1,\"resultPerPage\":5}";
+
+	JsonFormat.Parser parser = JsonFormat.parser();
+
+	DescriptorProtos.DescriptorProto descriptorProto = DescriptorProtos.DescriptorProto.newBuilder()
+			.build();
+
+	DescriptorProtos.FileDescriptorProto fileDescriptorProto = DescriptorProtos.FileDescriptorProto.newBuilder()
+			.build();
+
+	DescriptorProtos.FileDescriptorSet fileDescriptorSet = DescriptorProtos.FileDescriptorSet.newBuilder()
+			.build();
+
+	DynamicMessage dynamicMessage = DynamicMessage.newBuilder().build();
+
+	Message.Builder messageBuilder;
+	parser.merge(protobufMessageAsJSONString, messageBuilder);
+}
+```

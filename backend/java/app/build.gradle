@@ -21,6 +21,7 @@ dependencies {
     implementation 'org.apache.kafka:kafka-clients:2.7.0'
 
     testImplementation 'com.google.protobuf:protobuf-java:4.0.0-rc-2'
+    testImplementation 'com.google.protobuf:protobuf-java-util:4.0.0-rc-2'
 
     // Use JUnit Jupiter API for testing.
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.2'
@@ -36,6 +37,10 @@ application {
         test {
             proto {
                 srcDir 'src/test/resources/testdata/protos'
+            }
+
+            java {
+                srcDir 'build/generated/source/proto/test'
             }
         }
     }

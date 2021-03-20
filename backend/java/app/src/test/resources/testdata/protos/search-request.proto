@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+option java_package = "io.github.karuppiah7890.kafkaprotobufproducer";
+
 message SearchRequest {
   string query = 1;
   int32 page_number = 2;
