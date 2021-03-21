@@ -1,8 +1,7 @@
 package io.github.karuppiah7890.kafkaprotobufproducer;
 
 import com.google.protobuf.DescriptorProtos;
-import com.google.protobuf.DynamicMessage;
-import com.google.protobuf.Message;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.util.JsonFormat;
 import io.github.karuppiah7890.kafkaprotobufproducer.SearchRequestOuterClass.SearchRequest;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -10,6 +9,11 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
 
 class KafkaProtobufProducerAppTest {
@@ -37,23 +41,31 @@ class KafkaProtobufProducerAppTest {
     }
 
     @Test
-    void convertJSONIntoProtobufMessage() {
+    void convertJSONIntoProtobufMessage() throws IOException {
         String protobufMessageAsJSONString = "{\"query\":\"meh-query\",\"pageNumber\":1,\"resultPerPage\":5}";
 
         JsonFormat.Parser parser = JsonFormat.parser();
 
-        DescriptorProtos.DescriptorProto descriptorProto = DescriptorProtos.DescriptorProto.newBuilder()
-                .build();
+//        DescriptorProtos.DescriptorProto descriptorProto = DescriptorProtos.DescriptorProto.newBuilder()
+//                .build();
+//
+        var descriptorFilePath = "/Users/karuppiahn/oss/github.com/karuppiah7890/kafka-protobuf-producer/backend/java/build/descriptors/test.desc";
 
-        DescriptorProtos.FileDescriptorProto fileDescriptorProto = DescriptorProtos.FileDescriptorProto.newBuilder()
-                .build();
+        var descriptorFile = new FileInputStream(descriptorFilePath);
 
-        DescriptorProtos.FileDescriptorSet fileDescriptorSet = DescriptorProtos.FileDescriptorSet.newBuilder()
-                .build();
+        DescriptorProtos.FileDescriptorSet fileDescriptorSet = DescriptorProtos.FileDescriptorSet.parseFrom(descriptorFile);
 
-        DynamicMessage dynamicMessage = DynamicMessage.newBuilder().build();
+        DescriptorProtos.FileDescriptorProto fileDescriptorProto = fileDescriptorSet.getFileList().stream()
+                .filter(fdsProto -> fdsProto.getName().equals("search-request.proto"))
+                .findFirst().get();
 
-        Message.Builder messageBuilder;
-        parser.merge(protobufMessageAsJSONString, messageBuilder);
+        Descriptors.FileDescriptor fileDescriptor = Descriptors.FileDescriptor.buildFrom(fileDescriptorProto, );
+
+
+//
+//        DynamicMessage dynamicMessage = DynamicMessage.newBuilder().build();
+//
+//        Message.Builder messageBuilder;
+//        parser.merge(protobufMessageAsJSONString, messageBuilder);
     }
 }

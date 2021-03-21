@@ -3397,3 +3397,224 @@ void convertJSONIntoProtobufMessage() {
 	parser.merge(protobufMessageAsJSONString, messageBuilder);
 }
 ```
+
+There's this thing about FileDescriptor
+
+https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/Descriptors.FileDescriptor.html
+
+There's a
+
+```java
+// Construct a FileDescriptor.
+static Descriptors.FileDescriptor 	buildFrom(DescriptorProtos.FileDescriptorProto proto, Descriptors.FileDescriptor[] dependencies)
+
+// Construct a FileDescriptor.
+static Descriptors.FileDescriptor 	buildFrom(DescriptorProtos.FileDescriptorProto proto, Descriptors.FileDescriptor[] dependencies, boolean allowUnknownDependencies)
+```
+
+I now remember what we did in our project. We actually had multiple protocol
+buffer messages spread across multiple files and there were multiple imports to
+each other, we also imported some google's proto stuff
+
+We used the `buildFrom` like static methods seen above to create the program.
+
+Let me check more :)
+
+`FileDescriptorSet` is just a collection of / list of `FileDescriptorProto`
+
+```proto
+// The protocol compiler can output a FileDescriptorSet containing the .proto
+// files it parses.
+message FileDescriptorSet {
+  repeated FileDescriptorProto file = 1;
+}
+```
+
+For `FileDescriptorProto` and `DescriptorProto`, see below
+
+```proto
+// Describes a complete .proto file.
+message FileDescriptorProto {
+  optional string name = 1;     // file name, relative to root of source tree
+  optional string package = 2;  // e.g. "foo", "foo.bar", etc.
+
+  // Names of files imported by this file.
+  repeated string dependency = 3;
+  // Indexes of the public imported files in the dependency list above.
+  repeated int32 public_dependency = 10;
+  // Indexes of the weak imported files in the dependency list.
+  // For Google-internal migration only. Do not use.
+  repeated int32 weak_dependency = 11;
+
+  // All top-level definitions in this file.
+  repeated DescriptorProto message_type = 4;
+  repeated EnumDescriptorProto enum_type = 5;
+  repeated ServiceDescriptorProto service = 6;
+  repeated FieldDescriptorProto extension = 7;
+
+  optional FileOptions options = 8;
+
+  // This field contains optional information about the original source code.
+  // You may safely remove this entire field without harming runtime
+  // functionality of the descriptors -- the information is needed only by
+  // development tools.
+  optional SourceCodeInfo source_code_info = 9;
+
+  // The syntax of the proto file.
+  // The supported values are "proto2" and "proto3".
+  optional string syntax = 12;
+}
+
+// Describes a message type.
+message DescriptorProto {
+  optional string name = 1;
+
+  repeated FieldDescriptorProto field = 2;
+  repeated FieldDescriptorProto extension = 6;
+
+  repeated DescriptorProto nested_type = 3;
+  repeated EnumDescriptorProto enum_type = 4;
+
+  message ExtensionRange {
+    optional int32 start = 1;  // Inclusive.
+    optional int32 end = 2;    // Exclusive.
+
+    optional ExtensionRangeOptions options = 3;
+  }
+  repeated ExtensionRange extension_range = 5;
+
+  repeated OneofDescriptorProto oneof_decl = 8;
+
+  optional MessageOptions options = 7;
+
+  // Range of reserved tag numbers. Reserved tag numbers may not be used by
+  // fields or extension ranges in the same message. Reserved ranges may
+  // not overlap.
+  message ReservedRange {
+    optional int32 start = 1;  // Inclusive.
+    optional int32 end = 2;    // Exclusive.
+  }
+  repeated ReservedRange reserved_range = 9;
+  // Reserved field names, which may not be used by fields in the same message.
+  // A given name may only be reserved once.
+  repeated string reserved_name = 10;
+}
+```
+
+For now, I'll start with a simple proto and then do for more protos with imports
+to internal and external (like google) protos :)
+
+Checking the docs regarding the Dynamic Message!
+
+https://developers.google.com/protocol-buffers/docs/reference/java-generated#utility-classes
+
+https://developers.google.com/protocol-buffers/docs/reference/google.protobuf
+
+https://codeburst.io/using-dynamic-messages-in-protocol-buffers-in-scala-9fda4f0efcb3
+
+https://developers.google.com/protocol-buffers/docs/techniques#self-description
+
+I have generated the `.desc` file now
+
+```groovy
+protobuf {
+    generateProtoTasks {
+        all().each { task ->
+            // If true, will generate a descriptor_set.desc file under
+            // $generatedFilesBaseDir/$sourceSet. Default is false.
+            // See --descriptor_set_out in protoc documentation about what it is.
+            task.generateDescriptorSet = true
+
+            // Allows to override the default for the descriptor set location
+            task.descriptorSetOptions.path =
+                    "${projectDir}/build/descriptors/${task.sourceSet.name}.dsc"
+
+            // If true, the descriptor set will contain line number information
+            // and comments. Default is false.
+            task.descriptorSetOptions.includeSourceInfo = true
+
+            // If true, the descriptor set will contain all transitive imports and
+            // is therefore self-contained. Default is false.
+            task.descriptorSetOptions.includeImports = true
+        }
+    }
+}
+```
+
+```bash
+$ ./gradlew clean compileJ compileTestJ
+
+BUILD SUCCESSFUL in 1s
+8 actionable tasks: 8 executed
+$ ls
+app		gradle		gradlew		gradlew.bat	settings.gradle
+$ fd . app/build
+app/build/classes
+app/build/classes/java
+app/build/classes/java/main
+app/build/classes/java/main/io
+app/build/classes/java/main/io/github
+app/build/classes/java/main/io/github/karuppiah7890
+app/build/classes/java/main/io/github/karuppiah7890/kafkaprotobufproducer
+app/build/classes/java/main/io/github/karuppiah7890/kafkaprotobufproducer/KafkaProtobufProducerApp.class
+app/build/classes/java/test
+app/build/classes/java/test/io
+app/build/classes/java/test/io/github
+app/build/classes/java/test/io/github/karuppiah7890
+app/build/classes/java/test/io/github/karuppiah7890/kafkaprotobufproducer
+app/build/classes/java/test/io/github/karuppiah7890/kafkaprotobufproducer/KafkaProtobufProducerAppTest.class
+app/build/classes/java/test/io/github/karuppiah7890/kafkaprotobufproducer/SearchRequestOuterClass$SearchRequest$1.class
+app/build/classes/java/test/io/github/karuppiah7890/kafkaprotobufproducer/SearchRequestOuterClass$SearchRequest$Builder.class
+app/build/classes/java/test/io/github/karuppiah7890/kafkaprotobufproducer/SearchRequestOuterClass$SearchRequest.class
+app/build/classes/java/test/io/github/karuppiah7890/kafkaprotobufproducer/SearchRequestOuterClass$SearchRequestOrBuilder.class
+app/build/classes/java/test/io/github/karuppiah7890/kafkaprotobufproducer/SearchRequestOuterClass.class
+app/build/descriptors
+app/build/descriptors/test.dsc
+app/build/extracted-include-protos
+app/build/extracted-include-protos/main
+app/build/extracted-include-protos/test
+app/build/extracted-include-protos/test/google
+app/build/extracted-include-protos/test/google/protobuf
+app/build/extracted-include-protos/test/google/protobuf/any.proto
+app/build/extracted-include-protos/test/google/protobuf/api.proto
+app/build/extracted-include-protos/test/google/protobuf/compiler
+app/build/extracted-include-protos/test/google/protobuf/compiler/plugin.proto
+app/build/extracted-include-protos/test/google/protobuf/descriptor.proto
+app/build/extracted-include-protos/test/google/protobuf/duration.proto
+app/build/extracted-include-protos/test/google/protobuf/empty.proto
+app/build/extracted-include-protos/test/google/protobuf/field_mask.proto
+app/build/extracted-include-protos/test/google/protobuf/source_context.proto
+app/build/extracted-include-protos/test/google/protobuf/struct.proto
+app/build/extracted-include-protos/test/google/protobuf/timestamp.proto
+app/build/extracted-include-protos/test/google/protobuf/type.proto
+app/build/extracted-include-protos/test/google/protobuf/wrappers.proto
+app/build/extracted-protos
+app/build/extracted-protos/main
+app/build/extracted-protos/test
+app/build/generated
+app/build/generated/source
+app/build/generated/source/proto
+app/build/generated/source/proto/test
+app/build/generated/source/proto/test/java
+app/build/generated/source/proto/test/java/io
+app/build/generated/source/proto/test/java/io/github
+app/build/generated/source/proto/test/java/io/github/karuppiah7890
+app/build/generated/source/proto/test/java/io/github/karuppiah7890/kafkaprotobufproducer
+app/build/generated/source/proto/test/java/io/github/karuppiah7890/kafkaprotobufproducer/SearchRequestOuterClass.java
+app/build/generated/sources
+app/build/generated/sources/annotationProcessor
+app/build/generated/sources/annotationProcessor/java
+app/build/generated/sources/annotationProcessor/java/main
+app/build/generated/sources/annotationProcessor/java/test
+app/build/generated/sources/headers
+app/build/generated/sources/headers/java
+app/build/generated/sources/headers/java/main
+app/build/generated/sources/headers/java/test
+app/build/tmp
+app/build/tmp/compileJava
+app/build/tmp/compileJava/source-classes-mapping.txt
+app/build/tmp/compileTestJava
+app/build/tmp/compileTestJava/source-classes-mapping.txt
+```
+
+
