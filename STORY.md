@@ -61,12 +61,14 @@ to consume them using another tool
 
 Next Steps would be
 
-- Try to use JSON format of the protobuf message as input for the tool
-  - CLI input - direct standard input or file input - a single JSON file maybe
+- Try to use JSON format of the protobuf message as input for the tool - 
+  PARTIALLY DONE
+  - CLI input - direct standard input or file input - a single JSON file maybe -
+  PARTIALLY DONE
 - Use Protobuf message metadata and parse the JSON input to form Protobuf
-  messages
-- Run the app to produce dummy data
-- Consume dummy data with kafka protobuf consumer tool
+  messages - DONE
+- Run the app to produce dummy data - DONE
+- Consume dummy data with kafka protobuf consumer tool - DONE
 
 Now we can use any JSON message and Protobuf message metadata data to produce
 any / most protobuf messages into Kafka. Why do I say "most" instead of "any"
@@ -3617,4 +3619,154 @@ app/build/tmp/compileTestJava
 app/build/tmp/compileTestJava/source-classes-mapping.txt
 ```
 
+---
 
+I'm now struggling to get some File Descriptor Set and File Descriptor stuff
+figured out. Hmm
+
+I need to pass in empty dependencies for now. But the in the past I remember how
+we had to provide dependencies in the right order or else things just broke 🤷
+And right order is a lot of work! But it was needed as we had too many proto
+files and all.
+
+```java
+package io.github.karuppiah7890.kafkaprotobufproducer;
+
+import com.google.protobuf.DescriptorProtos;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.util.JsonFormat;
+import io.github.karuppiah7890.kafkaprotobufproducer.SearchRequestOuterClass.SearchRequest;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.junit.jupiter.api.Test;
+
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Properties;
+
+class KafkaProtobufProducerAppTest {
+    @Test
+    void produceDummyProtobufMessageDataIntoKafka() {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", "localhost:9092");
+        props.put("acks", "all");
+        props.put("retries", 0);
+        props.put("linger.ms", 1);
+        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        props.put("value.serializer", "org.apache.kafka.common.serialization.ByteArraySerializer");
+
+        SearchRequest searchRequest = SearchRequest.newBuilder()
+                .setPageNumber(1)
+                .setResultPerPage(5)
+                .setQuery("meh-query")
+                .build();
+
+        Producer<String, byte[]> producer = new KafkaProducer<>(props);
+        for (int i = 0; i < 100; i++)
+            producer.send(new ProducerRecord<>("my-topic", Integer.toString(i), searchRequest.toByteArray()));
+
+        producer.close();
+    }
+
+    @Test
+    void convertJSONIntoProtobufMessage() throws IOException {
+        String protobufMessageAsJSONString = "{\"query\":\"meh-query\",\"pageNumber\":1,\"resultPerPage\":5}";
+
+        JsonFormat.Parser parser = JsonFormat.parser();
+
+//        DescriptorProtos.DescriptorProto descriptorProto = DescriptorProtos.DescriptorProto.newBuilder()
+//                .build();
+//
+        var descriptorFilePath = "/Users/karuppiahn/oss/github.com/karuppiah7890/kafka-protobuf-producer/backend/java/build/descriptors/test.desc";
+
+        var descriptorFile = new FileInputStream(descriptorFilePath);
+
+        DescriptorProtos.FileDescriptorSet fileDescriptorSet = DescriptorProtos.FileDescriptorSet.parseFrom(descriptorFile);
+
+        DescriptorProtos.FileDescriptorProto fileDescriptorProto = fileDescriptorSet.getFileList().stream()
+                .filter(fdsProto -> fdsProto.getName().equals("search-request.proto"))
+                .findFirst().get();
+
+        Descriptors.FileDescriptor fileDescriptor = Descriptors.FileDescriptor.buildFrom(fileDescriptorProto, );
+
+
+//
+//        DynamicMessage dynamicMessage = DynamicMessage.newBuilder().build();
+//
+//        Message.Builder messageBuilder;
+//        parser.merge(protobufMessageAsJSONString, messageBuilder);
+    }
+}
+```
+
+I have to pass in an empty array for dependencies field. But I couldn't do it.
+Gotta check how to do that tomorrow!
+
+https://duckduckgo.com/?t=ffab&q=java+create+empty+array&ia=web&iax=qa
+
+https://alabamacodecamp.com/java/how-to-make-an-array-empty-in-java.html
+
+https://alabamacodecamp.com/java/how-to-initialize-an-empty-array-in-java.html
+
+---
+
+I finally managed to get the whole thing working! :D 
+
+I had to fix some build.gradle issues. For example I had used the extension
+`.dsc` instead of `.desc`. Yeah. 🤦 And I had used `.desc` in my code. Anyways
+
+Yayayay!!!!
+
+
+```bash
+$ kafka-protobuf-console-consumer -b localhost:9092 -t my-topic --proto-dir app/src/test/resources/testdata/protos/ --file search-request.proto --message SearchRequest --consumer-group march-22-2021-23-33-40 --pretty --with-separator --from-beginning 
+Starting 3.0.0 build-on 2019-09-01.03:43:59 with consumer group: march-22-2021-23-33-40
+
+panic: File: search-request.proto not found in: [app/src/test/resources/testdata/protos/]
+
+
+goroutine 1 [running]:
+main.main()
+	/Users/yogeshsr/go/src/github.com/yogeshsr/kafka-protobuf-console-consumer/main.go:87 +0x82c
+
+$ ls
+README.md	STORY.md	backend
+
+$ cd backend/java/
+ java  main ✘  $ kafka-protobuf-console-consumer -b localhost:9092 -t my-topic --proto-dir app/src/test/resources/testdata/protos/ --file search-request.proto --message SearchRequest --consumer-group march-22-2021-23-33-40 --pretty --with-separator --from-beginning 
+Starting 3.0.0 build-on 2019-09-01.03:43:59 with consumer group: march-22-2021-23-33-40
+
+Message topic:"my-topic" partition:0 offset:0
+{
+	"query": "meh-query",
+	"pageNumber": 1,
+	"resultPerPage": 5
+}
+--------------------------------- end message -----------------------------------------
+^C
+```
+
+----
+
+- Try to use JSON format of the protobuf message as input for the tool - 
+  PARTIALLY DONE
+  - CLI input - direct standard input or file input - a single JSON file maybe -
+  PARTIALLY DONE
+- Use Protobuf message metadata and parse the JSON input to form Protobuf
+  messages - DONE
+- Run the app to produce dummy data - DONE
+- Consume dummy data with kafka protobuf consumer tool - DONE
+
+---
+
+I need to make it a bit better now.
+
+- Try to use JSON format of the protobuf message as input for the tool
+  - CLI input - direct standard input or file input - a single JSON file maybe
+
+I need to do the whole thing in the main method and use user input and not
+hardcoded values! :)
